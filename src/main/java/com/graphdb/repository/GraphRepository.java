@@ -237,6 +237,108 @@ public class GraphRepository {
         return skills;
     }
 
+    /**
+     * Skill-Based Recommendation: Find developers who could help with a defect
+     * Based on required skills, excluding developers already assigned to the defect.
+     * Results are ranked by:
+     * 1. Number of matching skills (descending)
+     * 2. Current workload/defect count (ascending)
+     *
+     * @param defectId The defect ID needing help
+     * @param requiredSkills List of skill names required for the defect
+     * @return Map of developer name to recommendation score (number of matching skills)
+     */
+    public Map<String, Integer> recommendDevelopersForDefect(String defectId, List<String> requiredSkills) {
+        String cypher = """
+                MATCH (def:Defect {id: $defectId})
+                MATCH (d:Developer)-[:HAS_SKILL]->(s:Skill)
+                WHERE s.name IN $requiredSkills
+                  AND NOT (d)-[:ASSIGNED_TO]->(def)
+                WITH d, count(DISTINCT s) AS matchingSkills
+                OPTIONAL MATCH (d)-[:ASSIGNED_TO]->(otherDefects:Defect)
+                WITH d.name AS developerName,
+                     matchingSkills,
+                     count(otherDefects) AS currentWorkload
+                RETURN developerName, matchingSkills, currentWorkload
+                ORDER BY matchingSkills DESC, currentWorkload ASC
+                """;
+        Map<String, Integer> recommendations = new HashMap<>();
+        try (Session session = driver.session()) {
+            Result result = session.run(cypher, parameters(
+                    "defectId", defectId,
+                    "requiredSkills", requiredSkills
+            ));
+            while (result.hasNext()) {
+                Record record = result.next();
+                String devName = record.get("developerName").asString();
+                int matchingSkills = record.get("matchingSkills").asInt();
+                recommendations.put(devName, matchingSkills);
+            }
+        }
+        logger.info("Found {} developer recommendations for defect {}",
+                recommendations.size(), defectId);
+        return recommendations;
+    }
+
+    /**
+     * Extended recommendation with detailed information including workload
+     */
+    public static class DeveloperRecommendation {
+        private final String name;
+        private final int matchingSkills;
+        private final int currentWorkload;
+
+        public DeveloperRecommendation(String name, int matchingSkills, int currentWorkload) {
+            this.name = name;
+            this.matchingSkills = matchingSkills;
+            this.currentWorkload = currentWorkload;
+        }
+
+        public String getName() { return name; }
+        public int getMatchingSkills() { return matchingSkills; }
+        public int getCurrentWorkload() { return currentWorkload; }
+
+        @Override
+        public String toString() {
+            return String.format("Developer{name='%s', matchingSkills=%d, workload=%d}",
+                    name, matchingSkills, currentWorkload);
+        }
+    }
+
+    public List<DeveloperRecommendation> recommendDevelopersWithDetails(String defectId, List<String> requiredSkills) {
+        String cypher = """
+                MATCH (def:Defect {id: $defectId})
+                MATCH (d:Developer)-[:HAS_SKILL]->(s:Skill)
+                WHERE s.name IN $requiredSkills
+                  AND NOT (d)-[:ASSIGNED_TO]->(def)
+                WITH d, count(DISTINCT s) AS matchingSkills
+                OPTIONAL MATCH (d)-[:ASSIGNED_TO]->(otherDefects:Defect)
+                WITH d.name AS developerName,
+                     matchingSkills,
+                     count(otherDefects) AS currentWorkload
+                RETURN developerName, matchingSkills, currentWorkload
+                ORDER BY matchingSkills DESC, currentWorkload ASC
+                """;
+        List<DeveloperRecommendation> recommendations = new ArrayList<>();
+        try (Session session = driver.session()) {
+            Result result = session.run(cypher, parameters(
+                    "defectId", defectId,
+                    "requiredSkills", requiredSkills
+            ));
+            while (result.hasNext()) {
+                Record record = result.next();
+                recommendations.add(new DeveloperRecommendation(
+                        record.get("developerName").asString(),
+                        record.get("matchingSkills").asInt(),
+                        record.get("currentWorkload").asInt()
+                ));
+            }
+        }
+        logger.info("Found {} detailed developer recommendations for defect {}",
+                recommendations.size(), defectId);
+        return recommendations;
+    }
+
     // ==================== UTILITY OPERATIONS ====================
 
     /**

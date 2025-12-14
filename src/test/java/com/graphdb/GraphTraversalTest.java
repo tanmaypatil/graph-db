@@ -215,4 +215,77 @@ public class GraphTraversalTest {
 
         logger.info("Test passed: Found all unique skills in each team");
     }
+
+    /**
+     * Test: Skill-based recommendation - Find developers who could help with a defect
+     * Graph traversal: Complex multi-hop with filtering
+     * (Defect)<-[:ASSIGNED_TO]-(Developer)-[:HAS_SKILL]->(Skill)
+     * Filters out developers already assigned and ranks by matching skills and workload
+     */
+    @Test
+    public void testSkillBasedRecommendation() {
+        logger.info("Running test: Skill-based developer recommendation");
+
+        // Scenario 1: defect2 needs Java and Neo4j skills
+        // Alice is already assigned to defect2, so she should NOT be recommended
+        // Bob has both Java and Neo4j (2 matches, 1 current defect)
+        List<String> requiredSkillsForDefect2 = List.of("Java", "Neo4j");
+        Map<String, Integer> recommendations = repository.recommendDevelopersForDefect(
+                "defect2", requiredSkillsForDefect2);
+
+        assertEquals(1, recommendations.size(), "Should recommend 1 developer for defect2");
+        assertTrue(recommendations.containsKey("Bob"), "Bob should be recommended");
+        assertEquals(2, recommendations.get("Bob"), "Bob should have 2 matching skills");
+        assertFalse(recommendations.containsKey("Alice"), "Alice should NOT be recommended (already assigned)");
+
+        logger.info("Test passed: Bob recommended for defect2 with 2 matching skills");
+
+        // Scenario 2: defect3 needs React and Python skills
+        // Carol is already assigned to defect3, so should NOT be recommended
+        // Dave has React and Python (2 matches, 0 defects) - best candidate
+        // Alice has Python (1 match, 3 defects) - secondary candidate
+        List<String> requiredSkillsForDefect3 = List.of("React", "Python");
+        Map<String, Integer> recommendationsForDefect3 = repository.recommendDevelopersForDefect(
+                "defect3", requiredSkillsForDefect3);
+
+        assertEquals(2, recommendationsForDefect3.size(), "Should recommend 2 developers for defect3");
+        assertTrue(recommendationsForDefect3.containsKey("Dave"), "Dave should be recommended");
+        assertTrue(recommendationsForDefect3.containsKey("Alice"), "Alice should be recommended");
+        assertEquals(2, recommendationsForDefect3.get("Dave"), "Dave should have 2 matching skills");
+        assertEquals(1, recommendationsForDefect3.get("Alice"), "Alice should have 1 matching skill");
+        assertFalse(recommendationsForDefect3.containsKey("Carol"), "Carol should NOT be recommended (already assigned)");
+
+        logger.info("Test passed: Dave and Alice recommended for defect3");
+    }
+
+    /**
+     * Test: Detailed skill-based recommendation with workload information
+     * Same as above but returns detailed information including current workload
+     */
+    @Test
+    public void testDetailedSkillBasedRecommendation() {
+        logger.info("Running test: Detailed skill-based recommendation with workload");
+
+        // defect3 needs React and Python skills
+        List<String> requiredSkills = List.of("React", "Python");
+        List<GraphRepository.DeveloperRecommendation> recommendations =
+                repository.recommendDevelopersWithDetails("defect3", requiredSkills);
+
+        assertEquals(2, recommendations.size(), "Should have 2 recommendations");
+
+        // First recommendation should be Dave (2 skills, 0 workload)
+        GraphRepository.DeveloperRecommendation first = recommendations.get(0);
+        assertEquals("Dave", first.getName(), "Dave should be first (most skills, least workload)");
+        assertEquals(2, first.getMatchingSkills(), "Dave should have 2 matching skills");
+        assertEquals(0, first.getCurrentWorkload(), "Dave should have 0 current defects");
+
+        // Second recommendation should be Alice (1 skill, 3 workload)
+        GraphRepository.DeveloperRecommendation second = recommendations.get(1);
+        assertEquals("Alice", second.getName(), "Alice should be second (fewer matching skills)");
+        assertEquals(1, second.getMatchingSkills(), "Alice should have 1 matching skill");
+        assertEquals(3, second.getCurrentWorkload(), "Alice should have 3 current defects");
+
+        logger.info("Test passed: Detailed recommendations ranked correctly by skills and workload");
+        logger.info("Recommendations: {}", recommendations);
+    }
 }
