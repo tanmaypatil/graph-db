@@ -9,4 +9,9 @@ This repository is created to do a basic exploration of neo4j db.
 * keep data model simple as this is simple app and not a production application
 * Need a junit test case for each scenario 
 
+## Basic Model 
+* Entities - Developers , Defects , Skills 
+* Relations - Developer has skills , Developers have skills . Defects are assigned to Developers.
+
+
 
