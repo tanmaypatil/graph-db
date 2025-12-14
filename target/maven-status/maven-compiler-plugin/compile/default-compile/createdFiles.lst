@@ -1,0 +1,6 @@
+com/graphdb/model/Team.class
+com/graphdb/model/Defect.class
+com/graphdb/model/Skill.class
+com/graphdb/model/Developer.class
+com/graphdb/connection/Neo4jConnection.class
+com/graphdb/repository/GraphRepository.class

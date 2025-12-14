@@ -1,0 +1,6 @@
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/model/Developer.java
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/model/Skill.java
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/model/Defect.java
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/repository/GraphRepository.java
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/connection/Neo4jConnection.java
+/Users/tanmaypatil/graph-db/src/main/java/com/graphdb/model/Team.java
